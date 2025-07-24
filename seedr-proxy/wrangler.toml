@@ -1,0 +1,9 @@
+name                = "seedr-proxy"
+main                = "src/index.js"
+compatibility_date  = "2025-07-24"
+type                = "esm"
+
+# Declare your secrets (you’ve already `wrangler secret put` these)
+[vars]
+SEEDR_EMAIL     = "shivesh.rameshbabu@gmail.com"
+SEEDR_PASSWORD  = "seedr108"
