@@ -282,15 +282,14 @@ export default function WorkoutPage() {
     <div className="p-6">
 
     
-    {/* MOBILE: refined cards with hover-delete and editable header */}
+    {/* MOBILE: refined cards with bottom-aligned delete button */}
     <div className="sm:hidden space-y-6 p-4">
     {rows.map(row => (
       <div
       key={row.id}
-      className="group bg-white border border-gray-200 rounded-xl shadow-md p-5 relative"
+      className="group bg-white border border-gray-200 rounded-xl shadow-md p-5"
       >
       {/* Editable Exercise Header */}
-      <div>
       <input
       type="text"
       value={row.values[columns[0]] || ''}
@@ -298,7 +297,6 @@ export default function WorkoutPage() {
       onChange={e => updateCell(row.id, columns[0], e.target.value)}
       className="text-xl font-semibold text-gray-800 mb-4 w-full bg-transparent border-b border-gray-300 focus:outline-none focus:ring-0"
       />
-      </div>
       
       {/* Other fields */}
       {columns.slice(1).map(col => {
@@ -318,16 +316,19 @@ export default function WorkoutPage() {
         );
       })}
       
-      {/* Hover-revealed Delete */}
+      {/* Bottom-positioned Hover Delete Button */}
+      <div className="mt-4 opacity-0 group-hover:opacity-100 transition-opacity">
       <button
       onClick={() => deleteRow(row.id)}
-      className="opacity-0 group-hover:opacity-100 absolute top-3 right-3 bg-red-500 hover:bg-red-600 text-white font-semibold py-1 px-3 rounded-md transition opacity duration-200"
+      className="w-full bg-red-500 hover:bg-red-600 text-white font-semibold py-2 rounded-md shadow-sm"
       >
       Delete
       </button>
       </div>
+      </div>
     ))}
     </div>
+
 
     
     {/* TABLE: desktop & larger */}
