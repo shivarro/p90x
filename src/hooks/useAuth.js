@@ -1,14 +1,17 @@
 // src/hooks/useAuth.js
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { onAuthStateChanged } from "firebase/auth";
-import { auth } from "../firebase"; // adjust this path if your firebase.js lives elsewhere
+import {
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut
+} from "firebase/auth";
+import { auth } from "../firebase";
 
-// 1) Create the context
 const AuthContext = createContext(null);
 
-// 2) Export a provider component
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
+  const [user, setUser]     = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -19,18 +22,27 @@ export function AuthProvider({ children }) {
     return unsubscribe;
   }, []);
 
+  // ← add these:
+  const login = (email, password) =>
+    signInWithEmailAndPassword(auth, email, password);
+
+  const signup = (email, password) =>
+    createUserWithEmailAndPassword(auth, email, password);
+
+  const logout = () =>
+    signOut(auth);
+
   return (
-    <AuthContext.Provider value={{ user, loading }}>
+    <AuthContext.Provider value={{ user, loading, login, signup, logout }}>
       {children}
     </AuthContext.Provider>
   );
 }
 
-// 3) Export the hook
 export function useAuth() {
   const ctx = useContext(AuthContext);
-  if (ctx === undefined) {
+  if (!ctx) {
     throw new Error("useAuth must be used within an AuthProvider");
   }
-  return ctx; // { user, loading }
+  return ctx; // now includes login, signup, logout
 }

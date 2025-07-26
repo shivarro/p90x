@@ -98,7 +98,6 @@ export default function WorkoutPage() {
         }
 
         setSession(data);
-        setVideoUrl(data.videoUrl || '');
         setColumns(data.columns || []);
         setRows(data.rows || []);
       } catch (err) {
