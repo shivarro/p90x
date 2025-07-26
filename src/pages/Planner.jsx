@@ -7,12 +7,17 @@ import { db } from '../firebase';
 import { useAuth } from '../hooks/useAuth';
 import { PLAN_DEFINITIONS } from '../data/planDefinitions';
 
+
+
 export default function Planner() {
   const { user } = useAuth();
   const [workoutMap, setWorkoutMap] = useState({});
-  const [planDays, setPlanDays] = useState([]);
   const [loading, setLoading] = useState(true);
   const [plan, setPlan] = useState(null);
+  const [showAllUpcoming, setShowAllUpcoming] = useState(false);
+  // eslint-disable-next-line no-unused-vars
+  const [planDays, setPlanDays] = useState([]);
+
 
   useEffect(() => {
     if (!user) return;
@@ -87,7 +92,7 @@ export default function Planner() {
 
     // cleanup
     return () => unsubscribe && unsubscribe();
-  }, [user]);
+  }, [user, setPlanDays]);
 
   // --- GROUPING/LOGIC FOR FLAT DAYS ARRAY ---
 
@@ -110,7 +115,9 @@ export default function Planner() {
     }
     return grouped.length; // All done!
   }
-
+  
+  
+  
   // Handle toggling completion status
   async function handleToggleCompleted(dayIdx, workoutIdx, newCompleted) {
     if (!plan) return;
@@ -147,7 +154,10 @@ export default function Planner() {
       workouts.map((workout, idx) => {
         const dayNumber = offset + dayOffset + 1;
         const w = workoutMap[workout.workoutId] || { name: workout.workoutId };
-        const workoutLink = `/workouts/${workout.workoutId}?day=${workout.day}`;
+        const workoutLink = (workout.completed && workout.workoutSessionId)
+        ? `/workouts/${workout.workoutId}/history/${workout.workoutSessionId}`
+        : `/workouts/${workout.workoutId}?day=${workout.day}`;
+
         return (
           <div
           key={`${dayNumber}-${workout.workoutId}-${idx}`}
@@ -210,14 +220,44 @@ export default function Planner() {
       </section>
 
       {/* Upcoming Workouts */}
-      <section className="mb-12">
-        <h2 className="text-2xl font-semibold mb-4">Upcoming Workouts</h2>
-        {upcoming.length > 0 ? (
-          renderDayCards(upcoming, todayIndex + 1)
+    <section className="mb-12">
+    <h2 className="text-2xl font-semibold mb-4">Upcoming Workouts</h2>
+    {upcoming.length > 0 ? (
+      <>
+      {renderDayCards(
+        showAllUpcoming ? upcoming : upcoming.slice(0, 2),
+        todayIndex + 1
+      )}
+      {upcoming.length > 2 && (
+        <div className="flex justify-center mt-4">
+        <button
+        className="inline-flex items-center px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold rounded-xl shadow-sm transition-all duration-150"
+        onClick={() => setShowAllUpcoming(v => !v)}
+        >
+        {showAllUpcoming ? (
+          <>
+          <svg className="w-4 h-4 mr-2 text-blue-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+          </svg>
+          Show Less
+          </>
         ) : (
-          <p className="text-gray-600">No upcoming workouts.</p>
+          <>
+          <svg className="w-4 h-4 mr-2 text-blue-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+          </svg>
+          Show All <span className="ml-1 text-xs text-blue-400">({upcoming.length})</span>
+          </>
         )}
-      </section>
+        </button>
+        </div>
+      )}
+      </>
+    ) : (
+      <p className="text-gray-600">No upcoming workouts.</p>
+    )}
+    </section>
+
 
       {/* Past Workouts */}
       <section>

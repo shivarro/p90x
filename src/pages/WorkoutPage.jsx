@@ -10,48 +10,30 @@ import { db } from '../firebase';
 
 const DEFAULT_COLUMNS = ['name', 'sets', 'reps', 'weight'];
 
-const WORKOUT_NAMES = {
-  cb: 'Chest & Back',
-  legs: 'Legs',
-  shoulders: 'Shoulders',
-  // add any other IDs here
-};
-
-// Called after complete workout button is clicked
-async function markWorkoutCompleted(userId, workoutId, day) {
+// Mark the workout completed and save the sessionId to the user's plan
+async function markWorkoutCompleted(userId, workoutId, day, sessionId) {
   const userRef = doc(db, 'users', userId);
   const userSnap = await getDoc(userRef);
   const plan = userSnap.data()?.currentPlan;
   if (!plan || !Array.isArray(plan.days)) return;
-
-  // See what your plan.days look like:
-  console.log('Plan days:', plan.days, 'looking for:', workoutId, 'on day', day);
-
-  // Find correct workout
   const idx = plan.days.findIndex(
     w => w.day === day && w.workoutId === workoutId
   );
-  console.log('Match idx:', idx);
-
   if (idx !== -1) {
     const daysCopy = plan.days.map(w => ({ ...w }));
     daysCopy[idx].completed = true;
+    daysCopy[idx].workoutSessionId = sessionId;
     await updateDoc(userRef, {
       'currentPlan.days': daysCopy,
       'currentPlan.updatedAt': serverTimestamp()
     });
-  } else {
-    alert('Could not find workout to mark as completed.');
   }
 }
 
 export default function WorkoutPage() {
   const { workoutId } = useParams();
-  const displayName = WORKOUT_NAMES[workoutId] || workoutId;
   const navigate = useNavigate();
   const { user } = useAuth();
-
-  // 🟢 Get `day` from URL query param
   const location = useLocation();
   const searchParams = new URLSearchParams(location.search);
   const day = Number(searchParams.get('day'));
@@ -62,8 +44,9 @@ export default function WorkoutPage() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [workoutName, setWorkoutName] = useState(workoutId);
 
-  // — INIT OR RESUME SESSION —
+  // Session initialization (resume or seed)
   useEffect(() => {
     if (!user) {
       setError('Please log in to continue.');
@@ -79,8 +62,6 @@ export default function WorkoutPage() {
     const initSession = async () => {
       try {
         const sessionsRef = collection(db, 'workouts', workoutId, 'sessions');
-
-        // 1) active session
         let q = query(
           sessionsRef,
           where('userId', '==', user.uid),
@@ -92,7 +73,7 @@ export default function WorkoutPage() {
 
         let data;
         if (snap.empty) {
-          // no active → grab most recent
+          // No active session: seed from last or defaults
           const lastQ = query(
             sessionsRef,
             where('userId', '==', user.uid),
@@ -136,25 +117,28 @@ export default function WorkoutPage() {
     initSession();
   }, [user, workoutId]);
 
-  // — fetch workout metadata for videoUrl —
+  // Fetch Firestore workout name and video URL
   useEffect(() => {
     if (!workoutId) return;
-    const fetchAndProxy = async () => {
+    const fetchData = async () => {
       try {
         const wDoc = await getDoc(doc(db, 'workouts', workoutId));
-        if (!wDoc.exists()) return;
-        const rawUrl = wDoc.data().videoUrl;
-        const proxied = `https://seedr-proxy.vinoda.workers.dev/?videoUrl=${encodeURIComponent(rawUrl)}`;
-        setVideoUrl(proxied);
-      } catch (err) {
-        console.error('Couldn’t load & proxy video URL:', err);
+        if (wDoc.exists()) {
+          if (wDoc.data().name) setWorkoutName(wDoc.data().name);
+          if (wDoc.data().videoUrl) {
+            setVideoUrl(
+              `https://seedr-proxy.vinoda.workers.dev/?videoUrl=${encodeURIComponent(wDoc.data().videoUrl)}`
+            );
+          }
+        }
+      } catch {
+        setWorkoutName(workoutId);
       }
     };
-
-    fetchAndProxy();
+    fetchData();
   }, [workoutId]);
 
-  // — AUTO-SAVE ON CHANGE —
+  // Auto-save on table change
   useEffect(() => {
     if (!session) return;
     const save = async () => {
@@ -168,7 +152,7 @@ export default function WorkoutPage() {
     save();
   }, [columns, rows, session, workoutId]);
 
-  // — Restore the LAST session’s layout on demand —
+  // Restore last session’s layout
   const restoreLastLayout = useCallback(async () => {
     if (!user || !workoutId) return;
     try {
@@ -190,12 +174,11 @@ export default function WorkoutPage() {
       setRows(lastData.rows || []);
       alert('Layout restored from last session.');
     } catch (err) {
-      console.error('Restore layout error:', err);
       alert('Could not restore layout.');
     }
   }, [user, workoutId]);
 
-  // — add/remove & edit helpers —
+  // Table edit helpers
   const addColumn = () => {
     const name = prompt('New column name:');
     if (name && !columns.includes(name.trim())) {
@@ -228,26 +211,20 @@ export default function WorkoutPage() {
     setRows(r => r.filter(rw => rw.id !== rowId));
   };
 
-  // — Complete Workout + mark as complete in Firestore plan —
+  // Complete Workout
   const completeWorkout = async () => {
     if (!session) return;
     try {
-      // mark this session complete
       const sessionRef = doc(db, 'workouts', workoutId, 'sessions', session.id);
       await updateDoc(sessionRef, { completedAt: serverTimestamp() });
-
-      // 🟢 Mark this workout as completed in the user's plan!
       if (user && workoutId && typeof day === 'number' && !isNaN(day)) {
-        await markWorkoutCompleted(user.uid, workoutId, day);
+        await markWorkoutCompleted(user.uid, workoutId, day, session.id);
       }
-
-      // navigate to completion screen
       navigate(
         `/workouts/${workoutId}/complete`,
         { state: { session: { ...session, columns, rows } } }
       );
     } catch (err) {
-      console.error('Complete error:', err);
       alert('Failed to complete workout.');
     }
   };
@@ -278,7 +255,7 @@ export default function WorkoutPage() {
       <div className="bg-white shadow-md rounded-lg overflow-hidden">
         {/* Header */}
         <div className="bg-blue-600 p-6 flex flex-col md:flex-row items-start md:items-center justify-between space-y-4 md:space-y-0">
-          <h1 className="text-2xl font-bold mb-4">Workout: {displayName}</h1>
+          <h1 className="text-2xl font-bold mb-4">Workout: {workoutName}</h1>
           <div className="flex flex-wrap gap-2">
             <button
               onClick={addColumn}
