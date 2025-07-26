@@ -112,32 +112,20 @@ export default function WorkoutPage() {
   }, [user, workoutId]);
 
   // — fetch workout metadata for videoUrl —
-  // — fetch & proxy the video URL through your backend —
   useEffect(() => {
     if (!workoutId) return;
-    
     const fetchAndProxy = async () => {
       try {
-        // 1) grab the raw WebDAV URL from Firestore
         const wDoc = await getDoc(doc(db, 'workouts', workoutId));
         if (!wDoc.exists()) return;
-        
         const rawUrl = wDoc.data().videoUrl;
-        // 2) wrap it in your proxy endpoint
-        //    e.g. if your worker is at https://seedr-proxy.vinoda.workers.dev
-        //    or Netlify at https://your-site.netlify.app/.netlify/functions/stream
-        const proxied = 
-        `https://seedr-proxy.vinoda.workers.dev/?videoUrl=${encodeURIComponent(rawUrl)}`;
-        // or for Netlify:
-        // const proxied = 
-        //   `/api/stream?videoUrl=${encodeURIComponent(rawUrl)}`;
-        
+        const proxied = `https://seedr-proxy.vinoda.workers.dev/?videoUrl=${encodeURIComponent(rawUrl)}`;
         setVideoUrl(proxied);
       } catch (err) {
         console.error('Couldn’t load & proxy video URL:', err);
       }
     };
-    
+
     fetchAndProxy();
   }, [workoutId]);
 
@@ -215,11 +203,24 @@ export default function WorkoutPage() {
     setRows(r => r.filter(rw => rw.id !== rowId));
   };
 
+  // — Complete Workout + advance plan —
   const completeWorkout = async () => {
     if (!session) return;
     try {
-      const ref = doc(db, 'workouts', workoutId, 'sessions', session.id);
-      await updateDoc(ref, { completedAt: serverTimestamp() });
+      // mark this session complete
+      const sessionRef = doc(db, 'workouts', workoutId, 'sessions', session.id);
+      await updateDoc(sessionRef, { completedAt: serverTimestamp() });
+
+      // bump the user's plan forward
+      const userRef = doc(db, 'users', user.uid);
+      const userSnap = await getDoc(userRef);
+      const currentIndex = userSnap.data()?.currentPlan?.dayIndex || 0;
+      await updateDoc(userRef, {
+        'currentPlan.dayIndex': currentIndex + 1,
+        'currentPlan.updatedAt': serverTimestamp()
+      });
+
+      // navigate to completion screen
       navigate(
         `/workouts/${workoutId}/complete`,
         { state: { session: { ...session, columns, rows } } }
@@ -229,146 +230,146 @@ export default function WorkoutPage() {
       alert('Failed to complete workout.');
     }
   };
-  
+
   if (loading) return (
     <div className="flex justify-center items-center h-64">
-    <span className="text-gray-500">Loading session…</span>
+      <span className="text-gray-500">Loading session…</span>
     </div>
   );
   if (error) return (
     <div className="max-w-md mx-auto mt-10 p-4 bg-red-100 text-red-700 rounded">
-    {error}
+      {error}
     </div>
   );
-  
+
   return (
     <div className="container mx-auto px-4 py-8">
-    {videoUrl && (
-      <div className="p-6 bg-gray-50">
-      <video
-      src={videoUrl}
-      controls
-      className="w-full rounded shadow-md"
-      />
-      </div>
-    )}
-    
-    <div className="bg-white shadow-md rounded-lg overflow-hidden">
-    {/* Header */}
-    <div className="bg-blue-600 p-6 flex flex-col md:flex-row items-start md:items-center justify-between space-y-4 md:space-y-0">
-    <h1 className="text-2xl font-bold mb-4">Workout: {displayName}</h1>
-    <div className="flex flex-wrap gap-2">
-    <button
-    onClick={addColumn}
-    className="bg-white text-blue-600 hover:bg-gray-100 font-medium px-4 py-2 rounded transition"
-    >
-    + Column
-    </button>
-    <button
-    onClick={addRow}
-    className="bg-white text-blue-600 hover:bg-gray-100 font-medium px-4 py-2 rounded transition"
-    >
-    + Row
-    </button>
-    <button
-    onClick={restoreLastLayout}
-    className="bg-yellow-500 text-white hover:bg-yellow-600 font-medium px-4 py-2 rounded transition"
-    >
-    Restore Last
-    </button>
-    </div>
-    </div>
-    
-    {/* Table */}
-    <div className="p-6 overflow-x-auto">
-    <table className="min-w-full divide-y divide-gray-200">
-    <thead className="bg-gray-50 sticky top-0">
-    <tr>
-    {columns.map((col, index) => (
-      <th
-      key={col}
-      className={
-        "px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-normal break-words " +
-        (index === 0 ? "w-2/5" : "")
-      }
-      >
-      <div className="flex items-center">
-      {col}
-      <button
-      onClick={() => deleteColumn(col)}
-      className="ml-2 text-red-500 hover:text-red-700"
-      aria-label={`Delete ${col}`}
-      >
-      ×
-      </button>
-      </div>
-      </th>
-    ))}
-    <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
-    Actions
-    </th>
-    </tr>
-    </thead>
-    <tbody className="bg-white divide-y divide-gray-200">
-    {rows.map(row => (
-      <tr key={row.id} className="hover:bg-gray-100">
-      {columns.map((col, index) => (
-        <td
-        key={col}
-        className={
-          "px-6 py-4 " +
-          (index === 0
-            ? "whitespace-normal break-words"
-            : "whitespace-nowrap")
-        }
-        >
-        {index === 0 ? (
-          <textarea
-          rows={2}
-          value={row.values[col] || ''}
-          onChange={e => updateCell(row.id, col, e.target.value)}
-          className="w-full border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+      {videoUrl && (
+        <div className="p-6 bg-gray-50">
+          <video
+            src={videoUrl}
+            controls
+            className="w-full rounded shadow-md"
           />
-        ) : (
-          <input
-          type="text"
-          value={row.values[col] || ''}
-          onChange={e => updateCell(row.id, col, e.target.value)}
-          className="w-full border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        )}
-        </td>
-      ))}
-      <td className="px-6 py-4 whitespace-nowrap text-center">
-      <button
-      onClick={() => deleteRow(row.id)}
-      className="bg-red-500 hover:bg-red-600 text-white font-medium px-3 py-1 rounded transition"
-      >
-      Delete
-      </button>
-      </td>
-      </tr>
-    ))}
-    </tbody>
-    </table>
-    </div>
-    
-    {/* Complete + History controls */}
-    <div className="p-6 border-t border-gray-100 text-right">
-    <Link
-    to={`/workouts/${workoutId}/history`}
-    className="inline-block mr-4 text-blue-600 hover:underline"
-    >
-    View History
-    </Link>
-    <button
-    onClick={completeWorkout}
-    className="bg-green-600 hover:bg-green-700 text-white font-semibold px-6 py-3 rounded transition"
-    >
-    Complete Workout
-    </button>
-    </div>
-    </div>
+        </div>
+      )}
+
+      <div className="bg-white shadow-md rounded-lg overflow-hidden">
+        {/* Header */}
+        <div className="bg-blue-600 p-6 flex flex-col md:flex-row items-start md:items-center justify-between space-y-4 md:space-y-0">
+          <h1 className="text-2xl font-bold mb-4">Workout: {displayName}</h1>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={addColumn}
+              className="bg-white text-blue-600 hover:bg-gray-100 font-medium px-4 py-2 rounded transition"
+            >
+              + Column
+            </button>
+            <button
+              onClick={addRow}
+              className="bg-white text-blue-600 hover:bg-gray-100 font-medium px-4 py-2 rounded transition"
+            >
+              + Row
+            </button>
+            <button
+              onClick={restoreLastLayout}
+              className="bg-yellow-500 text-white hover:bg-yellow-600 font-medium px-4 py-2 rounded transition"
+            >
+              Restore Last
+            </button>
+          </div>
+        </div>
+
+        {/* Table */}
+        <div className="p-6 overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50 sticky top-0">
+              <tr>
+                {columns.map((col, index) => (
+                  <th
+                    key={col}
+                    className={
+                      "px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-normal break-words " +
+                      (index === 0 ? "w-2/5" : "")
+                    }
+                  >
+                    <div className="flex items-center">
+                      {col}
+                      <button
+                        onClick={() => deleteColumn(col)}
+                        className="ml-2 text-red-500 hover:text-red-700"
+                        aria-label={`Delete ${col}`}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  </th>
+                ))}
+                <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {rows.map(row => (
+                <tr key={row.id} className="hover:bg-gray-100">
+                  {columns.map((col, index) => (
+                    <td
+                      key={col}
+                      className={
+                        "px-6 py-4 " +
+                        (index === 0
+                          ? "whitespace-normal break-words"
+                          : "whitespace-nowrap")
+                      }
+                    >
+                      {index === 0 ? (
+                        <textarea
+                          rows={2}
+                          value={row.values[col] || ''}
+                          onChange={e => updateCell(row.id, col, e.target.value)}
+                          className="w-full border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                        />
+                      ) : (
+                        <input
+                          type="text"
+                          value={row.values[col] || ''}
+                          onChange={e => updateCell(row.id, col, e.target.value)}
+                          className="w-full border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      )}
+                    </td>
+                  ))}
+                  <td className="px-6 py-4 whitespace-nowrap text-center">
+                    <button
+                      onClick={() => deleteRow(row.id)}
+                      className="bg-red-500 hover:bg-red-600 text-white font-medium px-3 py-1 rounded transition"
+                    >
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Complete + History controls */}
+        <div className="p-6 border-t border-gray-100 text-right">
+          <Link
+            to={`/workouts/${workoutId}/history`}
+            className="inline-block mr-4 text-blue-600 hover:underline"
+          >
+            View History
+          </Link>
+          <button
+            onClick={completeWorkout}
+            className="bg-green-600 hover:bg-green-700 text-white font-semibold px-6 py-3 rounded transition"
+          >
+            Complete Workout
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

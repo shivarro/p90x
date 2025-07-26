@@ -6,23 +6,37 @@ import {
   createUserWithEmailAndPassword,
   signOut
 } from "firebase/auth";
-import { auth } from "../firebase";
+import { doc, setDoc, serverTimestamp } from "firebase/firestore";
+import { auth, db } from "../firebase";  // make sure you export `db` in firebase.js
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  const [user, setUser]     = useState(null);
+  const [user, setUser]       = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setUser(firebaseUser);
       setLoading(false);
+
+      if (firebaseUser) {
+        // Upsert the root user doc so you can see it in Firestore
+        const userRef = doc(db, "users", firebaseUser.uid);
+        await setDoc(
+          userRef,
+          {
+            email: firebaseUser.email,
+            lastSeen: serverTimestamp(),
+            // you can merge in more profile fields here
+          },
+          { merge: true }
+        );
+      }
     });
     return unsubscribe;
   }, []);
 
-  // ← add these:
   const login = (email, password) =>
     signInWithEmailAndPassword(auth, email, password);
 
@@ -44,5 +58,5 @@ export function useAuth() {
   if (!ctx) {
     throw new Error("useAuth must be used within an AuthProvider");
   }
-  return ctx; // now includes login, signup, logout
+  return ctx; // { user, loading, login, signup, logout }
 }
