@@ -12,6 +12,8 @@ export default function NavBar() {
   const navigate = useNavigate();
   const [showDelete, setShowDelete] = useState(false);
   const menuRef = useRef();
+  const [mobileOpen, setMobileOpen] = useState(false);
+
 
   // Click-away to close
   useEffect(() => {
@@ -72,44 +74,85 @@ export default function NavBar() {
     window.location.reload();
   }
 
+  
   return (
     <nav className="bg-blue-600 px-6 py-4">
-      <div className="max-w-7xl mx-auto flex items-center justify-between">
-        <div className="flex space-x-6">
-          <Link to="/planner" className="text-white font-semibold hover:underline">
-            Planner
-          </Link>
-          <Link to="/workouts" className="text-white font-semibold hover:underline">
-            Workouts
-          </Link>
+    <div className="max-w-7xl mx-auto flex items-center justify-between">
+    {/* Nav links */}
+    <div className="flex items-center">
+    <Link to="/planner" className="text-white font-semibold hover:underline">
+    Planner
+    </Link>
+    <Link to="/workouts" className="text-white font-semibold hover:underline ml-4">
+    Workouts
+    </Link>
+    </div>
+    
+    {/* Hamburger toggle only on mobile */}
+    <button
+    className="sm:hidden text-white ml-4 focus:outline-none"
+    onClick={() => setMobileOpen(prev => !prev)}
+    >
+    {mobileOpen ? '✕' : '☰'}
+    </button>
+    
+    {/* Desktop user & logout */}
+    <div className="hidden sm:flex items-center space-x-4" ref={menuRef}>
+    {user && (
+      <>
+      <button
+      className="text-white font-medium focus:outline-none"
+      onClick={() => setShowDelete(v => !v)}
+      >
+      Logged in: {user.displayName || user.email}
+      </button>
+      <button
+      onClick={handleLogout}
+      className="text-white font-semibold hover:underline"
+      >
+      Log out
+      </button>
+      {showDelete && (
+        <div className="absolute right-0 mt-10 w-44 bg-white border rounded-lg shadow-lg">
+        <button
+        onClick={handleDeleteAllData}
+        className="block w-full text-left px-4 py-3 text-red-700 hover:bg-red-50 hover:text-red-900 font-semibold"
+        >
+        Delete Data
+        </button>
         </div>
-        {user && (
-          <div className="flex items-center space-x-4 relative" ref={menuRef}>
-            <button
-              className="text-white focus:outline-none font-medium"
-              onClick={() => setShowDelete(v => !v)}
-            >
-              Logged in: {user.displayName || user.email}
-            </button>
-            <button
-              onClick={handleLogout}
-              className="text-white font-semibold hover:underline"
-            >
-              Log out
-            </button>
-            {showDelete && (
-              <div className="absolute right-0 top-10 w-44 z-50 bg-white border rounded-lg shadow-lg animate-fade-in">
-                <button
-                  onClick={handleDeleteAllData}
-                  className="block w-full text-left px-4 py-3 text-red-700 hover:bg-red-50 hover:text-red-900 font-semibold rounded-b-lg transition"
-                >
-                  Delete Data
-                </button>
-              </div>
-            )}
-          </div>
-        )}
+      )}
+      </>
+    )}
+    </div>
+    </div>
+    
+    {/* Mobile drawer menu */}
+    {mobileOpen && (
+      <div className="sm:hidden mt-2 bg-blue-600 bg-opacity-90 border-t border-blue-500">
+      <div className="px-4 py-3 flex flex-col space-y-2" ref={menuRef}>
+      {user && (
+        <>
+        <span className="text-white font-medium">
+        Logged in: {user.displayName || user.email}
+        </span>
+        <button
+        onClick={handleLogout}
+        className="text-white font-semibold text-left"
+        >
+        Log out
+        </button>
+        <button
+        onClick={handleDeleteAllData}
+        className="text-red-200 font-semibold text-left"
+        >
+        Delete Data
+        </button>
+        </>
+      )}
       </div>
+      </div>
+    )}
     </nav>
   );
 }
