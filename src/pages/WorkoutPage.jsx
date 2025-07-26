@@ -279,79 +279,127 @@ export default function WorkoutPage() {
         </div>
 
         {/* Table */}
-        <div className="p-6 overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50 sticky top-0">
-              <tr>
-                {columns.map((col, index) => (
-                  <th
-                    key={col}
-                    className={
-                      "px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-normal break-words " +
-                      (index === 0 ? "w-2/5" : "")
-                    }
-                  >
-                    <div className="flex items-center">
-                      {col}
-                      <button
-                        onClick={() => deleteColumn(col)}
-                        className="ml-2 text-red-500 hover:text-red-700"
-                        aria-label={`Delete ${col}`}
-                      >
-                        ×
-                      </button>
-                    </div>
-                  </th>
-                ))}
-                <th className="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {rows.map(row => (
-                <tr key={row.id} className="hover:bg-gray-100">
-                  {columns.map((col, index) => (
-                    <td
-                      key={col}
-                      className={
-                        "px-6 py-4 " +
-                        (index === 0
-                          ? "whitespace-normal break-words"
-                          : "whitespace-nowrap")
-                      }
-                    >
-                      {index === 0 ? (
-                        <textarea
-                          rows={2}
-                          value={row.values[col] || ''}
-                          onChange={e => updateCell(row.id, col, e.target.value)}
-                          className="w-full border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                        />
-                      ) : (
-                        <input
-                          type="text"
-                          value={row.values[col] || ''}
-                          onChange={e => updateCell(row.id, col, e.target.value)}
-                          className="w-full border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                      )}
-                    </td>
-                  ))}
-                  <td className="px-6 py-4 whitespace-nowrap text-center">
-                    <button
-                      onClick={() => deleteRow(row.id)}
-                      className="bg-red-500 hover:bg-red-600 text-white font-medium px-3 py-1 rounded transition"
-                    >
-                      Delete
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+    <div className="p-6">
 
+    
+    {/* MOBILE: refined cards with hover-delete and editable header */}
+    <div className="sm:hidden space-y-6 p-4">
+    {rows.map(row => (
+      <div
+      key={row.id}
+      className="group bg-white border border-gray-200 rounded-xl shadow-md p-5 relative"
+      >
+      {/* Editable Exercise Header */}
+      <div>
+      <input
+      type="text"
+      value={row.values[columns[0]] || ''}
+      placeholder="Exercise"
+      onChange={e => updateCell(row.id, columns[0], e.target.value)}
+      className="text-xl font-semibold text-gray-800 mb-4 w-full bg-transparent border-b border-gray-300 focus:outline-none focus:ring-0"
+      />
+      </div>
+      
+      {/* Other fields */}
+      {columns.slice(1).map(col => {
+        const label = col.charAt(0).toUpperCase() + col.slice(1);
+        return (
+          <div key={col} className="mb-3">
+          <label className="block text-gray-600 font-medium mb-1">
+          {label}
+          </label>
+          <input
+          type="text"
+          value={row.values[col] || ''}
+          onChange={e => updateCell(row.id, col, e.target.value)}
+          className="w-full bg-gray-50 border border-gray-300 rounded-md px-3 py-2 text-md focus:outline-none focus:ring-2 focus:ring-blue-300"
+          />
+          </div>
+        );
+      })}
+      
+      {/* Hover-revealed Delete */}
+      <button
+      onClick={() => deleteRow(row.id)}
+      className="opacity-0 group-hover:opacity-100 absolute top-3 right-3 bg-red-500 hover:bg-red-600 text-white font-semibold py-1 px-3 rounded-md transition opacity duration-200"
+      >
+      Delete
+      </button>
+      </div>
+    ))}
+    </div>
+
+    
+    {/* TABLE: desktop & larger */}
+    <div className="hidden sm:block overflow-x-auto">
+    <table className="min-w-full divide-y divide-gray-200 table-auto">
+    <thead className="bg-gray-50 sticky top-0">
+    <tr>
+    {columns.map((col, idx) => (
+      <th
+      key={col}
+      className={`px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider
+                ${idx === 0 ? 'w-2/5 sticky left-0 bg-gray-50 z-10' : ''}
+                `}
+      >
+      <div className="flex items-center">
+      {col}
+      <button
+      onClick={() => deleteColumn(col)}
+      className="ml-2 text-red-500 hover:text-red-700"
+      aria-label={`Delete ${col}`}
+      >
+      ×
+      </button>
+      </div>
+      </th>
+    ))}
+    <th className="px-4 py-2 text-xs font-medium text-gray-500 uppercase tracking-wider">
+    Actions
+    </th>
+    </tr>
+    </thead>
+    <tbody className="bg-white divide-y divide-gray-200">
+    {rows.map(row => (
+      <tr key={row.id} className="hover:bg-gray-100">
+      {columns.map((col, idx) => (
+        <td
+        key={col}
+        className={`px-4 py-2 align-top
+                  ${idx === 0 ? 'whitespace-normal break-words sticky left-0 bg-white z-0' : 'whitespace-nowrap'}
+                  text-sm`}
+        >
+        {idx === 0 ? (
+          <textarea
+          rows={2}
+          value={row.values[col] || ''}
+          onChange={e => updateCell(row.id, col, e.target.value)}
+          className="w-full border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+          />
+        ) : (
+          <input
+          type="text"
+          value={row.values[col] || ''}
+          onChange={e => updateCell(row.id, col, e.target.value)}
+          className="w-full border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        )}
+        </td>
+      ))}
+      <td className="px-4 py-2 whitespace-nowrap text-center text-sm">
+      <button
+      onClick={() => deleteRow(row.id)}
+      className="bg-red-500 hover:bg-red-600 text-white font-medium px-3 py-1 rounded transition"
+      >
+      Delete
+      </button>
+      </td>
+      </tr>
+    ))}
+    </tbody>
+    </table>
+    </div>
+    </div>
         {/* Complete + History controls */}
         <div className="p-6 border-t border-gray-100 text-right">
           <Link
