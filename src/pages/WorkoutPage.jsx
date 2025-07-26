@@ -7,6 +7,8 @@ import {
 import { useParams, useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { db } from '../firebase';
+import MobileCard from '../components/MobileCard.jsx';
+
 
 const DEFAULT_COLUMNS = ['name', 'sets', 'reps', 'weight'];
 
@@ -282,52 +284,19 @@ export default function WorkoutPage() {
     <div className="p-6">
 
     
-    {/* MOBILE: refined cards with bottom-aligned delete button */}
+    {/* MOBILE: tap-to-show delete with two-step confirmation */}
     <div className="sm:hidden space-y-6 p-4">
     {rows.map(row => (
-      <div
+      <MobileCard
       key={row.id}
-      className="group bg-white border border-gray-200 rounded-xl shadow-md p-5"
-      >
-      {/* Editable Exercise Header */}
-      <input
-      type="text"
-      value={row.values[columns[0]] || ''}
-      placeholder="Exercise"
-      onChange={e => updateCell(row.id, columns[0], e.target.value)}
-      className="text-xl font-semibold text-gray-800 mb-4 w-full bg-transparent border-b border-gray-300 focus:outline-none focus:ring-0"
+      columns={columns}
+      row={row}
+      updateCell={updateCell}
+      deleteRow={deleteRow}
       />
-      
-      {/* Other fields */}
-      {columns.slice(1).map(col => {
-        const label = col.charAt(0).toUpperCase() + col.slice(1);
-        return (
-          <div key={col} className="mb-3">
-          <label className="block text-gray-600 font-medium mb-1">
-          {label}
-          </label>
-          <input
-          type="text"
-          value={row.values[col] || ''}
-          onChange={e => updateCell(row.id, col, e.target.value)}
-          className="w-full bg-gray-50 border border-gray-300 rounded-md px-3 py-2 text-md focus:outline-none focus:ring-2 focus:ring-blue-300"
-          />
-          </div>
-        );
-      })}
-      
-      {/* Bottom-positioned Hover Delete Button */}
-      <div className="mt-4 opacity-0 group-hover:opacity-100 transition-opacity">
-      <button
-      onClick={() => deleteRow(row.id)}
-      className="w-full bg-red-500 hover:bg-red-600 text-white font-semibold py-2 rounded-md shadow-sm"
-      >
-      Delete
-      </button>
-      </div>
-      </div>
     ))}
     </div>
+
 
 
     
@@ -420,3 +389,4 @@ export default function WorkoutPage() {
     </div>
   );
 }
+  
