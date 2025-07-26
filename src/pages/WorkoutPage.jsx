@@ -1,20 +1,11 @@
 // src/pages/WorkoutPage.jsx
 import React, { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
-import { useAuth } from '../hooks/useAuth';
 import {
-  collection,
-  query,
-  where,
-  orderBy,
-  limit,
-  getDocs,
-  getDoc,
-  addDoc,
-  updateDoc,
-  doc,
-  serverTimestamp
+  doc, getDoc, updateDoc, collection, query, where, orderBy, limit,
+  getDocs, addDoc, serverTimestamp
 } from 'firebase/firestore';
+import { useParams, useNavigate, Link, useLocation } from 'react-router-dom';
+import { useAuth } from '../hooks/useAuth';
 import { db } from '../firebase';
 
 const DEFAULT_COLUMNS = ['name', 'sets', 'reps', 'weight'];
@@ -26,11 +17,45 @@ const WORKOUT_NAMES = {
   // add any other IDs here
 };
 
+// Called after complete workout button is clicked
+async function markWorkoutCompleted(userId, workoutId, day) {
+  const userRef = doc(db, 'users', userId);
+  const userSnap = await getDoc(userRef);
+  const plan = userSnap.data()?.currentPlan;
+  if (!plan || !Array.isArray(plan.days)) return;
+
+  // See what your plan.days look like:
+  console.log('Plan days:', plan.days, 'looking for:', workoutId, 'on day', day);
+
+  // Find correct workout
+  const idx = plan.days.findIndex(
+    w => w.day === day && w.workoutId === workoutId
+  );
+  console.log('Match idx:', idx);
+
+  if (idx !== -1) {
+    const daysCopy = plan.days.map(w => ({ ...w }));
+    daysCopy[idx].completed = true;
+    await updateDoc(userRef, {
+      'currentPlan.days': daysCopy,
+      'currentPlan.updatedAt': serverTimestamp()
+    });
+  } else {
+    alert('Could not find workout to mark as completed.');
+  }
+}
+
 export default function WorkoutPage() {
   const { workoutId } = useParams();
   const displayName = WORKOUT_NAMES[workoutId] || workoutId;
   const navigate = useNavigate();
   const { user } = useAuth();
+
+  // 🟢 Get `day` from URL query param
+  const location = useLocation();
+  const searchParams = new URLSearchParams(location.search);
+  const day = Number(searchParams.get('day'));
+
   const [videoUrl, setVideoUrl] = useState('');
   const [session, setSession] = useState(null);
   const [columns, setColumns] = useState([]);
@@ -203,7 +228,7 @@ export default function WorkoutPage() {
     setRows(r => r.filter(rw => rw.id !== rowId));
   };
 
-  // — Complete Workout + advance plan —
+  // — Complete Workout + mark as complete in Firestore plan —
   const completeWorkout = async () => {
     if (!session) return;
     try {
@@ -211,14 +236,10 @@ export default function WorkoutPage() {
       const sessionRef = doc(db, 'workouts', workoutId, 'sessions', session.id);
       await updateDoc(sessionRef, { completedAt: serverTimestamp() });
 
-      // bump the user's plan forward
-      const userRef = doc(db, 'users', user.uid);
-      const userSnap = await getDoc(userRef);
-      const currentIndex = userSnap.data()?.currentPlan?.dayIndex || 0;
-      await updateDoc(userRef, {
-        'currentPlan.dayIndex': currentIndex + 1,
-        'currentPlan.updatedAt': serverTimestamp()
-      });
+      // 🟢 Mark this workout as completed in the user's plan!
+      if (user && workoutId && typeof day === 'number' && !isNaN(day)) {
+        await markWorkoutCompleted(user.uid, workoutId, day);
+      }
 
       // navigate to completion screen
       navigate(
